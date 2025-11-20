@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Webcam Classification</title>
+  <style>
+    video, canvas {
+      width: 400px;
+      border: 2px solid #444;
+      border-radius: 8px;
+    }
+    #label-box {
+      margin-top: 12px;
+      font-size: 22px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h2>Live Video Classification</h2>
+
+  <video id="video" autoplay playsinline></video>
+  <canvas id="canvas" width="224" height="224"></canvas>
+
+  <div id="label-box">Loading model...</div>
+
+  <script type="module" src="/main.js"></script>
+</body>
+</html>
