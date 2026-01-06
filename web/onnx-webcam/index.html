@@ -1,29 +1,91 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Webcam Classification</title>
-  <style>
-    video, canvas {
-      width: 400px;
-      border: 2px solid #444;
-      border-radius: 8px;
-    }
-    #label-box {
-      margin-top: 12px;
-      font-size: 22px;
-      font-weight: bold;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JimJam Eating Detector</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.1/dist/ort.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.15.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #1f2937; color: #f9fafb; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; padding: 20px; }
+        .container { display: flex; flex-direction: column; gap: 20px; max-width: 1200px; width: 100%; }
+        .video-canvas-container { position: relative; width: 100%; max-width: 900px; margin: 0 auto; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5); }
+        video, canvas { display: block; width: 100%; height: auto; }
+        .status-panel { background-color: #374151; padding: 15px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2); }
+        .status-panel.minimized { max-height: 50px; overflow: hidden; }
+        .status-item { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px dashed #4b5563; }
+        .status-item:last-child { border-bottom: none; }
+        .status-label { font-weight: 600; color: #d1d5db; }
+        .status-value { font-weight: 700; padding: 0 8px; border-radius: 4px; }
+        .pass { background-color: #10b981; color: #fff; }
+        .warning { background-color: #f59e0b; color: #1f2937; }
+        .fail { background-color: #ef4444; color: #fff; }
+        .info { background-color: #3b82f6; color: #fff; }
+        .overlay-text { position: absolute; top: 10px; left: 10px; background: rgba(0, 0, 0, 0.6); color: white; padding: 5px 10px; border-radius: 6px; font-weight: 700; z-index: 10; }
+    </style>
 </head>
 <body>
-  <h2>Live Video Classification</h2>
 
-  <video id="video" autoplay playsinline></video>
-  <canvas id="canvas" width="224" height="224"></canvas>
+    <div class="container">
+        <h1 class="text-3xl font-bold text-center text-white mb-4">JimJam Eating Gate</h1>
+        
+        <div class="video-canvas-container">
+            <!-- The visible video feed -->
+            <video id="video" style="display: none;"></video>
+            <!-- Canvas to draw output and landmarks -->
+            <canvas id="canvas"></canvas>
+            <!-- Prediction label overlay -->
+            <div id="jimjam-label" class="overlay-text text-xl">Loading...</div>
+        </div>
 
-  <div id="label-box">Loading model...</div>
+        <div id="statusPanel" class="status-panel">
+            <h2 class="text-xl font-semibold mb-2 text-blue-300 flex justify-between items-center">
+                System Status 
+                <button onclick="toggleStatusPanel()" class="bg-blue-600 hover:bg-blue-700 text-white text-sm px-2 py-1 rounded-full shadow-lg transition duration-150">📊</button>
+            </h2>
 
-  <script type="module" src="/main.js"></script>
+            <div class="grid grid-cols-2 gap-x-4 gap-y-2">
+                <div class="status-item">
+                    <span class="status-label">JimJam Detection:</span>
+                    <span id="jimjam-status" class="status-value warning">Loading</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Face Tracked:</span>
+                    <span id="face-status" class="status-value fail">❌</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Hand Tracked:</span>
+                    <span id="hand-status" class="status-value fail">❌</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Hand-to-Mouth:</span>
+                    <span id="jimjam-mouth-status" class="status-value fail">Not Detected</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Chew Count (8s):</span>
+                    <span id="chew-count" class="status-value info">0</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Eating Status:</span>
+                    <span id="eating-status" class="status-value fail">Monitoring</span>
+                </div>
+                <div class="status-item col-span-2">
+                    <span class="status-label">Gate Progress:</span>
+                    <span id="system-status" class="status-value warning">Waiting for detection</span>
+                </div>
+            </div>
+            <p id="system-message" class="text-sm mt-3 text-gray-400"></p>
+        </div>
+    </div>
+
+    <script src="main.js"></script>
 </body>
 </html>

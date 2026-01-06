@@ -2,24 +2,61 @@ import torch
 import torch.nn as nn
 from torchvision import models
 
-# ----- load your model -----
-model = models.mobilenet_v2(weights=None)
-model.classifier = nn.Sequential(
-    nn.Dropout(0.3),
-    nn.Linear(model.last_channel, 3)
-)
-model.load_state_dict(torch.load("jimjam_classifier.pth", map_location="cpu"))
-model.eval()
+MODEL_PATH = "jimjam_classifier_2_classes.pth" 
+# The name of the output ONNX file
+ONNX_OUTPUT_PATH = "jimjam_classifier_2_classes.onnx"
+# The device to use for loading (CPU is recommended for export)
+DEVICE = torch.device("cpu") 
+IMG_SIZE = 224
+NUM_CLASSES = 3
 
-dummy_input = torch.randn(1, 3, 224, 224)
+def load_and_export_to_onnx():
+    # 1. Recreate the Model Architecture
+    
+    # Load MobileNetV2 without pre-trained weights initially
+    model = models.mobilenet_v2(weights=None)
+    
+    # Recreate the custom classifier head exactly as defined in the training script
+    model.classifier = nn.Sequential(
+        nn.Dropout(0.3),
+        nn.Linear(model.last_channel, NUM_CLASSES)
+    )
+    
+    # 2. Load the Trained Weights
+    try:
+        # Load the state dictionary to the defined device
+        model.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE))
+    except FileNotFoundError:
+        print(f"Error: Model file not found at '{MODEL_PATH}'. Please check the path.")
+        return
+        
+    # Set model to evaluation mode (important for components like Dropout)
+    model.to(DEVICE).eval()
+    
+    print(f"Model weights loaded successfully from {MODEL_PATH}.")
 
-torch.onnx.export(
-    model,
-    dummy_input,
-    "jimjam_classifier.onnx",
-    input_names=["input"],
-    output_names=["output"],
-    opset_version=12
-)
+    # 3. Define Dummy Input
+    # Create a dummy input tensor matching your expected input shape (Batch Size 1, 3 Channels, 224x224)
+    dummy_input = torch.randn(1, 3, IMG_SIZE, IMG_SIZE, device=DEVICE)
 
-print("Saved ONNX model!")
+    # 4. Export to ONNX
+    try:
+        torch.onnx.export(
+            model,
+            dummy_input,
+            ONNX_OUTPUT_PATH,
+            export_params=True,
+            opset_version=11, # Opset 11 is a widely supported version
+            do_constant_folding=True, # Optimize constants in the model
+            input_names=['input_image'], # Define a friendly name for the input tensor
+            output_names=['output_prediction'], # Define a friendly name for the output tensor
+            # Dynamic axes allows the batch size (index 0) to be flexible
+            dynamic_axes={'input_image': {0: 'batch_size'}}
+        )
+        print(f"✅ Successfully exported PyTorch model to ONNX at: {ONNX_OUTPUT_PATH}")
+        
+    except Exception as e:
+        print(f"An error occurred during ONNX export: {e}")
+
+if __name__ == "__main__":
+    load_and_export_to_onnx()

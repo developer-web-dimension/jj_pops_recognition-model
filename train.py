@@ -40,7 +40,6 @@ model.classifier = nn.Sequential(
 
 model = model.to(device)
 
-# Freeze feature extractor (same as base_model.trainable = False)
 for param in model.features.parameters():
     param.requires_grad = False
 
@@ -90,5 +89,5 @@ for epoch in range(EPOCHS):
 
     print(f"Epoch {epoch+1}/{EPOCHS} | Loss: {avg_loss:.4f} | Train Acc: {train_acc:.2f}% | Val Acc: {val_acc:.2f}%")
 
-torch.save(model.state_dict(), "jimjam_classifier.pth")
+torch.save(model.state_dict(), "jimjam_classifier_2_classes.pth")
 print("Model saved as jimjam_classifier.pth")

@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>JimJam Live Classification</title>
+
+<script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+
+<style>
+  video {
+    width: 400px;
+    border: 2px solid #333;
+    border-radius: 8px;
+  }
+  #label {
+    margin-top: 20px;
+    font-size: 24px;
+    font-weight: bold;
+  }
+</style>
+
+</head>
+<body>
+
+<h2>JimJam Pops Classification (WebSocket)</h2>
+
+<video id="camera" autoplay playsinline></video>
+<div id="label">Waiting for predictions...</div>
+
+<script>
+const video = document.getElementById("camera");
+const labelBox = document.getElementById("label");
+
+// ------------------- CONNECT TO SERVER -------------------
+const socket = io("https://d6abbd70114e.ngrok-free.app"); 
+// For local testing: io("http://127.0.0.1:5000");
+
+// ------------------- CAMERA ACCESS -------------------
+navigator.mediaDevices.getUserMedia({ video: true })
+  .then(stream => { video.srcObject = stream; });
+
+// ------------------- CANVAS FOR FRAME CAPTURE -------------------
+const canvas = document.createElement("canvas");
+canvas.width = 224;
+canvas.height = 224;
+const ctx = canvas.getContext("2d");
+
+// ------------------- SEND FRAMES TO PYTHON -------------------
+setInterval(() => {
+  ctx.drawImage(video, 0, 0, 224, 224);
+
+  const imgData = canvas.toDataURL("image/jpeg");
+
+  socket.emit("frame", imgData);
+}, 150); // ~6 FPS (can be 100ms for more FPS)
+
+// ------------------- RECEIVE PREDICTION -------------------
+socket.on("prediction", (data) => {
+  labelBox.innerText = `${data.label} (${data.confidence.toFixed(2)})`;
+});
+
+// ------------------- ERROR HANDLING -------------------
+socket.on("error", (err) => {
+  console.error("Server Error:", err);
+});
+</script>
+
+</body>
+</html>
